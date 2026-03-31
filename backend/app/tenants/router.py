@@ -51,6 +51,16 @@ async def setup_owner(data: SetupOwnerRequest, db: AsyncSession = Depends(get_db
     return {"message": "Owner created successfully"}
 
 
+@router.get("/exists", tags=["setup"])
+async def tenant_exists(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether any tenant has been configured."""
+    from sqlalchemy import select, func
+    from app.tenants.models import Tenant
+    result = await db.execute(select(func.count()).select_from(Tenant))
+    count = result.scalar_one()
+    return {"exists": count > 0}
+
+
 @router.get("/me", response_model=TenantResponse)
 async def get_me(current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await TenantService(db).get_me(current_user.tenant_id)
