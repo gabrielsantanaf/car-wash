@@ -20,7 +20,11 @@ export function InternalLayout({ children, allowedRoles }: { children: React.Rea
     }
   }, []);
 
-  if (!role) return null;
+  if (!role) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="size-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen bg-secondary">

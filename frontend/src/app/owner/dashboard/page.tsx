@@ -31,44 +31,15 @@ export default function DashboardPage() {
   });
 
   const stats = [
-    {
-      label: "Agendamentos hoje",
-      value: today.length,
-      icon: <CalendarCheck size={18} />,
-      accent: "text-blue-400",
-      bg: "bg-blue-500/10",
-      border: "border-blue-500/20",
-    },
-    {
-      label: "Na fila agora",
-      value: queue.length,
-      icon: <List size={18} />,
-      accent: "text-orange-400",
-      bg: "bg-orange-500/10",
-      border: "border-orange-500/20",
-    },
-    {
-      label: "Total de clientes",
-      value: clients.length,
-      icon: <Users size={18} />,
-      accent: "text-primary",
-      bg: "bg-primary/10",
-      border: "border-primary/20",
-    },
-    {
-      label: "Concluídos hoje",
-      value: today.filter((a) => a.status === "done").length,
-      icon: <CheckCircle size={18} />,
-      accent: "text-green-400",
-      bg: "bg-green-500/10",
-      border: "border-green-500/20",
-    },
+    { label: "Agendamentos hoje", value: today.length, icon: <CalendarCheck size={18} />, accent: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+    { label: "Na fila agora",     value: queue.length, icon: <List size={18} />,          accent: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
+    { label: "Total de clientes", value: clients.length, icon: <Users size={18} />,       accent: "text-primary",    bg: "bg-primary/10",    border: "border-primary/20" },
+    { label: "Concluídos hoje",   value: today.filter((a) => a.status === "done").length, icon: <CheckCircle size={18} />, accent: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
   ];
 
   return (
     <InternalLayout allowedRoles={["owner"]}>
       <div className="flex flex-col gap-6">
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-black tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -76,16 +47,10 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((s) => (
-            <div
-              key={s.label}
-              className={`bg-background border ${s.border} rounded-2xl p-5 flex flex-col gap-3`}
-            >
-              <div className={`size-9 rounded-xl ${s.bg} ${s.accent} flex items-center justify-center`}>
-                {s.icon}
-              </div>
+            <div key={s.label} className={`bg-background border ${s.border} rounded-2xl p-5 flex flex-col gap-3`}>
+              <div className={`size-9 rounded-xl ${s.bg} ${s.accent} flex items-center justify-center`}>{s.icon}</div>
               <div>
                 <p className="text-3xl font-black tabular-nums">{s.value}</p>
                 <p className="text-xs text-muted-foreground font-medium mt-0.5">{s.label}</p>
@@ -94,7 +59,6 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Today's appointments */}
         <div className="bg-background border border-border rounded-2xl">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-black text-sm uppercase tracking-widest text-muted-foreground">Agendamentos de hoje</h2>
