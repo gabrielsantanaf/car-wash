@@ -26,7 +26,7 @@ async def send_message(data: SendRequest):
     payload = {
         "number": phone,
         "options": {"delay": 1200, "presence": "composing"},
-        "textMessage": {"text": data.message},
+        "text": data.message,
     }
 
     try:

@@ -14,6 +14,7 @@ from app.scheduling.router import router as scheduling_router
 from app.capacity.router import router as capacity_router
 from app.queue.router import router as queue_router
 from app.notifications.router import router as notifications_router
+from app.whatsapp.router import router as whatsapp_router
 from app.core.scheduler import start_scheduler, stop_scheduler
 
 log = structlog.get_logger()
@@ -51,6 +52,7 @@ app.include_router(scheduling_router, prefix="/appointments", tags=["scheduling"
 app.include_router(capacity_router, prefix="/capacity", tags=["capacity"])
 app.include_router(queue_router, prefix="/queue", tags=["queue"])
 app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+app.include_router(whatsapp_router, prefix="/whatsapp", tags=["whatsapp"])
 
 
 @app.get("/health")

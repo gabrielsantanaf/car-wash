@@ -62,7 +62,9 @@ services:
       retries: 10
 
   evolution:
-    image: atendai/evolution-api:latest
+    build:
+      context: ./evolution-api
+      dockerfile: Dockerfile
     volumes:
       - evolution_data:/evolution/instances
     ports:
@@ -86,6 +88,7 @@ services:
       CACHE_REDIS_PREFIX_KEY: evolution
       CACHE_REDIS_SAVE_INSTANCES: "true"
       LOG_LEVEL: ERROR
+      CONFIG_SESSION_PHONE_VERSION: 2.3000.1035194821
     depends_on:
       postgres:
         condition: service_healthy

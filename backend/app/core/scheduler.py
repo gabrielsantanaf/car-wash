@@ -1,32 +1,23 @@
-import asyncio
 from datetime import datetime, timezone, timedelta
 
 import structlog
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.database import AsyncSessionLocal
 
 log = structlog.get_logger()
-scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 
 
 def start_scheduler():
-    scheduler.add_job(run_expire_confirmations, "interval", minutes=5, id="expire_confirmations")
-    scheduler.add_job(run_send_reminders, "interval", minutes=15, id="send_reminders")
+    scheduler.add_job(_expire_confirmations, "interval", minutes=5, id="expire_confirmations")
+    scheduler.add_job(_send_reminders, "interval", minutes=15, id="send_reminders")
     scheduler.start()
     log.info("scheduler_started")
 
 
 def stop_scheduler():
     scheduler.shutdown(wait=False)
-
-
-def run_expire_confirmations():
-    asyncio.run(_expire_confirmations())
-
-
-def run_send_reminders():
-    asyncio.run(_send_reminders())
 
 
 async def _expire_confirmations():
