@@ -146,6 +146,19 @@ export default function LoginPage() {
               ) : "Entrar"}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Ainda não tem um posto?{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/setup")}
+                className="font-semibold text-primary hover:underline transition-colors"
+              >
+                Criar conta
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>
