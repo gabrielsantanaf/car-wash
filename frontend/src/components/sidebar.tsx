@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, CalendarCheck, Users, List, Settings, LogOut, Gauge, Droplets, UserCog, MessageCircle,
+  LayoutDashboard, CalendarCheck, Users, List, Settings, LogOut, Gauge, Droplets, UserCog, MessageCircle, Wrench,
 } from "lucide-react";
 
 interface NavItem {
@@ -23,6 +23,7 @@ const NAV: NavItem[] = [
   { href: "/attendant/queue",        label: "Fila",         icon: <List size={16} />,             roles: ["attendant"] },
   { href: "/washer/queue",           label: "Fila",         icon: <Droplets size={16} />,         roles: ["washer"] },
   { href: "/owner/capacity",         label: "Capacidade",   icon: <Gauge size={16} />,            roles: ["owner"] },
+  { href: "/owner/services",         label: "Serviços",     icon: <Wrench size={16} />,           roles: ["owner"] },
   { href: "/owner/users",            label: "Funcionários", icon: <UserCog size={16} />,          roles: ["owner"] },
   { href: "/owner/whatsapp",          label: "WhatsApp",     icon: <MessageCircle size={16} />,    roles: ["owner"] },
   { href: "/owner/settings",         label: "Configurações",icon: <Settings size={16} />,         roles: ["owner"] },

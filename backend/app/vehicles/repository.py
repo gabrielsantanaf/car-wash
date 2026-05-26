@@ -32,6 +32,11 @@ class VehicleRepository:
     async def get_or_create(self, plate: str, client_id: uuid.UUID, tenant_id: uuid.UUID, extra: dict = {}) -> tuple[Vehicle, bool]:
         vehicle = await self.get_by_plate(plate, tenant_id)
         if vehicle:
+            new_category = extra.get("size_category")
+            if new_category and vehicle.size_category != new_category:
+                vehicle.size_category = new_category
+                await self.db.commit()
+                await self.db.refresh(vehicle)
             return vehicle, False
         vehicle = await self.create({"plate": plate, "client_id": client_id, "tenant_id": tenant_id, **extra})
         return vehicle, True

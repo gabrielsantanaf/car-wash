@@ -26,3 +26,4 @@ class Tenant(Base):
     clients: Mapped[list["Client"]] = relationship(back_populates="tenant")  # noqa: F821
     capacity_slots: Mapped[list["CapacitySlot"]] = relationship(back_populates="tenant")  # noqa: F821
     appointments: Mapped[list["Appointment"]] = relationship(back_populates="tenant")  # noqa: F821
+    services: Mapped[list["Service"]] = relationship(back_populates="tenant")  # noqa: F821

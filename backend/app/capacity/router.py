@@ -23,3 +23,8 @@ async def create_slot(data: CapacitySlotCreate, current_user=Depends(require_own
 @router.put("/{slot_id}", response_model=CapacitySlotResponse)
 async def update_slot(slot_id: uuid.UUID, data: CapacitySlotUpdate, current_user=Depends(require_owner_or_attendant), db: AsyncSession = Depends(get_db)):
     return await CapacityService(db).update_slot(current_user.tenant_id, slot_id, data)
+
+
+@router.delete("/{slot_id}", status_code=204)
+async def delete_slot(slot_id: uuid.UUID, current_user=Depends(require_owner_or_attendant), db: AsyncSession = Depends(get_db)):
+    await CapacityService(db).delete_slot(current_user.tenant_id, slot_id)

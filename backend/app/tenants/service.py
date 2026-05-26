@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.tenants.repository import TenantRepository
 from app.tenants.schemas import TenantCreate, TenantUpdate
+from app.services.repository import ServiceRepository
 
 
 class TenantService:
@@ -20,7 +21,9 @@ class TenantService:
         existing = await self.repo.get_by_slug(data.slug)
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slug already taken")
-        return await self.repo.create(data.model_dump())
+        tenant = await self.repo.create(data.model_dump())
+        await ServiceRepository(self.repo.db).seed_defaults(tenant.id)
+        return tenant
 
     async def update(self, tenant_id: uuid.UUID, data: TenantUpdate):
         tenant = await self.get_me(tenant_id)

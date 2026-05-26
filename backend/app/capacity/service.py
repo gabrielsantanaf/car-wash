@@ -22,3 +22,9 @@ class CapacityService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Slot not found")
         updates = {k: v for k, v in data.model_dump().items() if v is not None}
         return await self.repo.update(slot, updates)
+
+    async def delete_slot(self, tenant_id: uuid.UUID, slot_id: uuid.UUID):
+        slot = await self.repo.get_by_id(slot_id, tenant_id)
+        if not slot:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Slot not found")
+        await self.repo.delete(slot)

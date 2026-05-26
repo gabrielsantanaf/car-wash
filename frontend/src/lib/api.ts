@@ -13,7 +13,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    if (error.response?.status === 401) {
+    const url: string = error.config?.url ?? "";
+    // Never try to refresh when the failing request itself is an auth endpoint
+    if (error.response?.status === 401 && !url.includes("/auth/")) {
       const refresh = localStorage.getItem("refresh_token");
       if (refresh) {
         try {
@@ -26,6 +28,9 @@ api.interceptors.response.use(
           localStorage.clear();
           window.location.href = "/login";
         }
+      } else {
+        localStorage.clear();
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);

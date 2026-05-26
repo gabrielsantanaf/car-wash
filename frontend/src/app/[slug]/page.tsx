@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost/api";
 
 interface Slot {
   slot_id: string;
-  date: string;
+  date: string;       // "YYYY-MM-DD"
   weekday: number;
   start_time: string;
   end_time: string;
@@ -17,21 +18,248 @@ interface Slot {
   max_cars: number;
 }
 
-const SERVICES = [
-  { id: "Lavagem Simples", label: "Lavagem Simples", desc: "Exterior completo" },
-  { id: "Lavagem Completa", label: "Lavagem Completa", desc: "Interno + externo" },
-  { id: "Enceramento", label: "Enceramento", desc: "Proteção e brilho" },
-  { id: "Polimento", label: "Polimento", desc: "Remove riscos leves" },
-  { id: "Higienização Interna", label: "Higienização Interna", desc: "Interior completo" },
+interface Service {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+}
+
+const SIZE_OPTIONS = [
+  { id: "small", label: "Carro",             desc: "Hatch, sedan, crossover" },
+  { id: "large", label: "SUV / Caminhonete", desc: "Picape, van, utilitário" },
 ];
+
+const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTH_NAMES = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
+// ── Calendar component ──────────────────────────────────────────────────────
+
+function SlotCalendar({
+  slots,
+  selectedDate,
+  selectedSlot,
+  onSelectDate,
+  onSelectSlot,
+  loading,
+}: {
+  slots: Slot[];
+  selectedDate: string | null;
+  selectedSlot: Slot | null;
+  onSelectDate: (date: string) => void;
+  onSelectSlot: (slot: Slot) => void;
+  loading: boolean;
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // month cursor starts at the earliest available date's month
+  const firstAvailable = slots[0]?.date;
+  const initDate = firstAvailable ? new Date(firstAvailable + "T12:00:00") : today;
+  const [cursor, setCursor] = useState({ year: initDate.getFullYear(), month: initDate.getMonth() });
+
+  // Set of dates that have available slots
+  const availableDates = useMemo(() => new Set(slots.map((s) => s.date)), [slots]);
+
+  // Days grid for current month
+  const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate();
+  const firstDayOfWeek = new Date(cursor.year, cursor.month, 1).getDay(); // 0=Sun
+
+  // Time slots for selected date
+  const timeSlotsForDate = useMemo(
+    () => slots.filter((s) => s.date === selectedDate),
+    [slots, selectedDate],
+  );
+
+  function prevMonth() {
+    setCursor((c) => {
+      const d = new Date(c.year, c.month - 1, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+  function nextMonth() {
+    setCursor((c) => {
+      const d = new Date(c.year, c.month + 1, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+
+  function formatSelectedDate(dateStr: string) {
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+        <div className="size-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+        Carregando horários...
+      </div>
+    );
+  }
+
+  if (slots.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6 text-center">
+        Nenhum horário disponível nos próximos dias.
+      </p>
+    );
+  }
+
+  const canGoPrev = (() => {
+    const prev = new Date(cursor.year, cursor.month - 1, 1);
+    return prev >= new Date(today.getFullYear(), today.getMonth(), 1);
+  })();
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Month header */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={prevMonth}
+          disabled={!canGoPrev}
+          className="p-1.5 rounded-lg hover:bg-secondary disabled:opacity-30 transition-colors"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-black">
+          {MONTH_NAMES[cursor.month]} {cursor.year}
+        </span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {/* Weekday labels */}
+      <div className="grid grid-cols-7 text-center">
+        {WEEKDAY_LABELS.map((d) => (
+          <span key={d} className="text-xs font-bold text-muted-foreground py-1">{d}</span>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="grid grid-cols-7 gap-y-1 text-center">
+        {/* Empty cells before the 1st */}
+        {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+          <span key={`empty-${i}`} />
+        ))}
+
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1;
+          const dateStr = `${cursor.year}-${String(cursor.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const cellDate = new Date(dateStr + "T12:00:00");
+          cellDate.setHours(0, 0, 0, 0);
+          const isPast = cellDate < today;
+          const hasSlots = availableDates.has(dateStr);
+          const isSelected = selectedDate === dateStr;
+          const isToday = cellDate.getTime() === today.getTime();
+
+          if (isPast || !hasSlots) {
+            return (
+              <span
+                key={day}
+                className={`mx-auto flex size-9 items-center justify-center rounded-full text-sm ${
+                  isToday ? "text-primary/40 font-bold" : "text-muted-foreground/30"
+                }`}
+              >
+                {day}
+              </span>
+            );
+          }
+
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => onSelectDate(dateStr)}
+              className={`mx-auto flex size-9 items-center justify-center rounded-full text-sm font-semibold transition-all ${
+                isSelected
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : isToday
+                  ? "bg-primary/10 text-primary hover:bg-primary/20"
+                  : "hover:bg-secondary text-foreground"
+              }`}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Time slots for selected date */}
+      {selectedDate && (
+        <div className="border-t border-border pt-4 flex flex-col gap-3">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground capitalize">
+            {formatSelectedDate(selectedDate)}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {timeSlotsForDate.map((slot) => {
+              const key = `${slot.slot_id}-${slot.start_time}`;
+              const isActive = selectedSlot?.slot_id === slot.slot_id
+                && selectedSlot?.date === slot.date
+                && selectedSlot?.start_time === slot.start_time;
+              const low = slot.available === 1;
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onSelectSlot(slot)}
+                  className={`flex flex-col items-center gap-0.5 py-2.5 px-2 rounded-xl border-2 transition-all ${
+                    isActive
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <span className={`text-sm font-black ${isActive ? "text-primary" : ""}`}>
+                    {slot.start_time}
+                  </span>
+                  <span className={`text-xs font-medium ${
+                    low
+                      ? "text-red-400"
+                      : isActive
+                      ? "text-primary/70"
+                      : "text-muted-foreground"
+                  }`}>
+                    {low ? "última vaga" : `${slot.available} vagas`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Hint when no date selected */}
+      {!selectedDate && (
+        <p className="text-xs text-center text-muted-foreground">
+          Selecione um dia destacado para ver os horários.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export default function BookingPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [slots, setSlots] = useState<Slot[]>([]);
+  const [allSlots, setAllSlots] = useState<Slot[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [sizeCategory, setSizeCategory] = useState<"small" | "large">("small");
 
   const [form, setForm] = useState({
     name: "", phone: "", plate: "", brand: "", model: "", color: "", service_type: "",
@@ -39,18 +267,21 @@ export default function BookingPage() {
 
   useEffect(() => {
     axios.get(`${API_URL}/booking/${slug}/slots`)
-      .then((r) => setSlots(r.data.filter((s: Slot) => s.available > 0)))
+      .then((r) => setAllSlots(r.data.filter((s: Slot) => s.available > 0)))
       .catch(() => toast.error("Erro ao carregar horários"))
       .finally(() => setLoadingSlots(false));
+    axios.get(`${API_URL}/services/public/${slug}`)
+      .then((r) => setServices(r.data))
+      .catch(() => {});
   }, [slug]);
 
   function set(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr + "T12:00:00");
-    return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+  function handleSelectDate(date: string) {
+    setSelectedDate(date);
+    setSelectedSlot(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -60,7 +291,11 @@ export default function BookingPage() {
     const scheduled_at = `${selectedSlot.date}T${selectedSlot.start_time}:00Z`;
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/booking/${slug}`, { ...form, scheduled_at });
+      await axios.post(`${API_URL}/booking/${slug}`, {
+        ...form,
+        size_category: sizeCategory,
+        scheduled_at,
+      });
       setSubmitted(true);
     } catch (err: any) {
       toast.error(err?.response?.data?.detail ?? "Erro ao agendar. Tente novamente.");
@@ -94,7 +329,6 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-secondary/50 px-4 py-5">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <div className="size-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
@@ -124,6 +358,26 @@ export default function BookingPage() {
 
           {/* Veículo */}
           <Section title="Veículo" icon="🚗">
+            <BookingField label="Tipo de veículo">
+              <div className="grid grid-cols-2 gap-2">
+                {SIZE_OPTIONS.map((opt) => {
+                  const active = sizeCategory === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSizeCategory(opt.id as "small" | "large")}
+                      className={`flex flex-col gap-0.5 px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                        active ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      <p className={`text-sm font-bold ${active ? "text-primary" : ""}`}>{opt.label}</p>
+                      <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </BookingField>
             <BookingField label="Placa">
               <input required value={form.plate} onChange={(e) => set("plate", e.target.value.toUpperCase())} placeholder="ABC-1234" className={inputCls} />
             </BookingField>
@@ -143,79 +397,62 @@ export default function BookingPage() {
           {/* Serviço */}
           <Section title="Serviço" icon="✨">
             <div className="grid grid-cols-1 gap-2">
-              {SERVICES.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => set("service_type", s.id)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 text-left transition-all ${
-                    form.service_type === s.id
-                      ? "border-primary bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
-                      : "border-border hover:border-muted-foreground/40"
-                  }`}
-                >
-                  <div>
-                    <p className={`text-sm font-semibold ${form.service_type === s.id ? "text-primary" : ""}`}>{s.label}</p>
-                    <p className="text-xs text-muted-foreground">{s.desc}</p>
-                  </div>
-                  {form.service_type === s.id && (
-                    <div className="size-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                      <svg className="size-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+              {services.map((s) => {
+                const selected = form.service_type === s.name;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => set("service_type", s.name)}
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                      selected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    <div>
+                      <p className={`text-sm font-semibold ${selected ? "text-primary" : ""}`}>{s.name}</p>
+                      {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
                     </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </Section>
-
-          {/* Horários */}
-          <Section title="Horário" icon="🕐">
-            {loadingSlots ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-                <div className="size-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-                Carregando horários...
-              </div>
-            ) : slots.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Nenhum horário disponível nos próximos dias.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {slots.map((slot) => {
-                  const selected = selectedSlot?.slot_id === slot.slot_id && selectedSlot?.date === slot.date;
-                  const low = slot.available <= 1;
-                  return (
-                    <button
-                      key={`${slot.slot_id}-${slot.date}`}
-                      type="button"
-                      onClick={() => setSelectedSlot(slot)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
-                        selected
-                          ? "border-primary bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
-                          : "border-border hover:border-muted-foreground/40"
-                      }`}
-                    >
-                      <div className={`size-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${selected ? "border-primary bg-primary" : "border-border"}`}>
-                        {selected && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {s.price !== null && s.price !== undefined && (
+                        <span className={`text-sm font-black ${selected ? "text-primary" : "text-muted-foreground"}`}>
+                          {s.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                      )}
+                      {selected && (
+                        <div className="size-5 rounded-full bg-primary flex items-center justify-center">
                           <svg className="size-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold capitalize">{formatDate(slot.date)}</p>
-                        <p className="text-xs text-muted-foreground">{slot.start_time} – {slot.end_time}</p>
-                      </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
-                        low
-                          ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                          : "bg-primary/10 text-primary border border-primary/20"
-                      }`}>
-                        {slot.available} {slot.available === 1 ? "vaga" : "vagas"}
-                      </span>
-                    </button>
-                  );
-                })}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* Calendário */}
+          <Section title="Horário" icon="📅">
+            <SlotCalendar
+              slots={allSlots}
+              selectedDate={selectedDate}
+              selectedSlot={selectedSlot}
+              onSelectDate={handleSelectDate}
+              onSelectSlot={setSelectedSlot}
+              loading={loadingSlots}
+            />
+            {selectedSlot && (
+              <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 mt-1">
+                <svg className="size-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm font-semibold text-primary">
+                  {new Date(selectedSlot.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+                  {" às "}{selectedSlot.start_time}
+                </p>
               </div>
             )}
           </Section>

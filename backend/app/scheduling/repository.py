@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -37,9 +37,14 @@ class AppointmentRepository:
         )
         return list(result.scalars().all())
 
-    async def count_in_slot(self, tenant_id: uuid.UUID, slot_start: datetime, slot_end: datetime) -> int:
+    async def sum_slot_weight_in_slot(self, tenant_id: uuid.UUID, slot_start: datetime, slot_end: datetime) -> int:
+        """Returns total slot weight (small=1, large=2) of active bookings in the time window."""
+        weight_expr = case((Vehicle.size_category == "large", 2), else_=1)
         result = await self.db.execute(
-            select(func.count()).where(
+            select(func.coalesce(func.sum(weight_expr), 0))
+            .select_from(Appointment)
+            .join(Vehicle, Appointment.vehicle_id == Vehicle.id)
+            .where(
                 and_(
                     Appointment.tenant_id == tenant_id,
                     Appointment.scheduled_at >= slot_start,

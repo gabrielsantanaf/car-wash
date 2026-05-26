@@ -31,50 +31,59 @@ class BookingService:
         return tenant
 
     async def get_available_slots(self, slug: str, days_ahead: int = 14) -> list[AvailableSlot]:
-        """Returns real availability for each slot across the next N days."""
+        """
+        Expands each CapacitySlot config into individual bookable time points.
+        E.g. config (08:00–18:00, 60 min, 3 cars) → slots 08:00, 09:00, ..., 17:00.
+        Availability is weight-aware: a large vehicle consumes 2 of the max_cars quota.
+        """
         tenant = await self._get_tenant_or_404(slug)
-        slots = await self.capacity.list_by_tenant(tenant.id)
+        configs = await self.capacity.list_by_tenant(tenant.id)
 
         result = []
         today = date.today()
+        now = datetime.now(timezone.utc)
 
         for delta in range(days_ahead):
             target_date = today + timedelta(days=delta)
-            weekday = target_date.weekday()  # 0=Monday
+            weekday = target_date.weekday()
 
-            for slot in slots:
-                if slot.weekday != weekday:
+            for cfg in configs:
+                if cfg.weekday != weekday:
                     continue
 
-                # Build datetime boundaries for this slot on this date
-                start_h, start_m = int(slot.start_time[:2]), int(slot.start_time[3:])
-                end_h, end_m = int(slot.end_time[:2]), int(slot.end_time[3:])
+                start_h, start_m = int(cfg.start_time[:2]), int(cfg.start_time[3:])
+                end_h, end_m = int(cfg.end_time[:2]), int(cfg.end_time[3:])
 
-                slot_start = datetime(
+                window_start = datetime(
                     target_date.year, target_date.month, target_date.day,
-                    start_h, start_m, tzinfo=timezone.utc
+                    start_h, start_m, tzinfo=timezone.utc,
                 )
-                slot_end = datetime(
+                window_end = datetime(
                     target_date.year, target_date.month, target_date.day,
-                    end_h, end_m, tzinfo=timezone.utc
+                    end_h, end_m, tzinfo=timezone.utc,
                 )
 
-                # Skip slots already in the past
-                if slot_end <= datetime.now(timezone.utc):
-                    continue
+                duration = timedelta(minutes=cfg.slot_duration_minutes)
+                current = window_start
 
-                booked = await self.appointments.count_in_slot(tenant.id, slot_start, slot_end)
-                available = max(0, slot.max_cars - booked)
+                while current + duration <= window_end:
+                    slot_end = current + duration
 
-                result.append(AvailableSlot(
-                    slot_id=slot.id,
-                    date=target_date.isoformat(),
-                    weekday=weekday,
-                    start_time=slot.start_time,
-                    end_time=slot.end_time,
-                    available=available,
-                    max_cars=slot.max_cars,
-                ))
+                    if slot_end > now:
+                        booked = await self.appointments.sum_slot_weight_in_slot(tenant.id, current, slot_end)
+                        available = max(0, cfg.max_cars - booked)
+
+                        result.append(AvailableSlot(
+                            slot_id=cfg.id,
+                            date=target_date.isoformat(),
+                            weekday=weekday,
+                            start_time=current.strftime("%H:%M"),
+                            end_time=slot_end.strftime("%H:%M"),
+                            available=available,
+                            max_cars=cfg.max_cars,
+                        ))
+
+                    current = slot_end
 
         return result
 
@@ -95,21 +104,19 @@ class BookingService:
         time_str = scheduled_dt.strftime("%H:%M")
         weekday = scheduled_dt.weekday()
 
-        slot = await self.capacity.get_slot_for_time(tenant.id, weekday, time_str)
-        if not slot:
+        cfg = await self.capacity.get_slot_for_time(tenant.id, weekday, time_str)
+        if not cfg:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Horário não disponível para este dia/hora."
             )
 
-        start_h, start_m = int(slot.start_time[:2]), int(slot.start_time[3:])
-        end_h, end_m = int(slot.end_time[:2]), int(slot.end_time[3:])
+        slot_end = scheduled_dt + timedelta(minutes=cfg.slot_duration_minutes)
 
-        slot_start = scheduled_dt.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
-        slot_end = scheduled_dt.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+        vehicle_weight = 2 if data.size_category == "large" else 1
 
-        booked = await self.appointments.count_in_slot(tenant.id, slot_start, slot_end)
-        if booked >= slot.max_cars:
+        booked_weight = await self.appointments.sum_slot_weight_in_slot(tenant.id, scheduled_dt, slot_end)
+        if booked_weight + vehicle_weight > cfg.max_cars:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Este horário já está lotado. Escolha outro."
@@ -117,7 +124,7 @@ class BookingService:
 
         vehicle, _ = await self.vehicles.get_or_create(
             data.plate, client.id, tenant.id,
-            extra={"brand": data.brand, "model": data.model, "color": data.color},
+            extra={"brand": data.brand, "model": data.model, "color": data.color, "size_category": data.size_category},
         )
 
         token = secrets.token_urlsafe(32)

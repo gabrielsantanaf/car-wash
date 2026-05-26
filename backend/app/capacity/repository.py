@@ -44,3 +44,7 @@ class CapacityRepository:
         await self.db.commit()
         await self.db.refresh(slot)
         return slot
+
+    async def delete(self, slot: CapacitySlot) -> None:
+        await self.db.delete(slot)
+        await self.db.commit()

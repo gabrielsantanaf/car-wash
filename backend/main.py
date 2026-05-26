@@ -2,6 +2,9 @@ import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.limiter import limiter
 
 from app.core.config import settings
 from app.auth.router import router as auth_router
@@ -15,6 +18,7 @@ from app.capacity.router import router as capacity_router
 from app.queue.router import router as queue_router
 from app.notifications.router import router as notifications_router
 from app.whatsapp.router import router as whatsapp_router
+from app.services.router import router as services_router
 from app.core.scheduler import start_scheduler, stop_scheduler
 
 log = structlog.get_logger()
@@ -33,6 +37,9 @@ app = FastAPI(
     docs_url="/docs" if settings.APP_ENV == "development" else None,
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +60,7 @@ app.include_router(capacity_router, prefix="/capacity", tags=["capacity"])
 app.include_router(queue_router, prefix="/queue", tags=["queue"])
 app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 app.include_router(whatsapp_router, prefix="/whatsapp", tags=["whatsapp"])
+app.include_router(services_router, prefix="/services", tags=["services"])
 
 
 @app.get("/health")

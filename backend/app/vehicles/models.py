@@ -17,6 +17,7 @@ class Vehicle(Base):
     brand: Mapped[str | None] = mapped_column(String(100))
     model: Mapped[str | None] = mapped_column(String(100))
     color: Mapped[str | None] = mapped_column(String(50))
+    size_category: Mapped[str] = mapped_column(String(20), default="small")  # "small" (1 slot) or "large" (2 slots)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     client: Mapped["Client"] = relationship(back_populates="vehicles")  # noqa: F821

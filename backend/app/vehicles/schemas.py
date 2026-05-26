@@ -9,6 +9,7 @@ class VehicleCreate(BaseModel):
     brand: str | None = None
     model: str | None = None
     color: str | None = None
+    size_category: str = "small"
 
 
 class VehicleResponse(BaseModel):
@@ -19,6 +20,7 @@ class VehicleResponse(BaseModel):
     brand: str | None
     model: str | None
     color: str | None
+    size_category: str
     created_at: datetime
 
     model_config = {"from_attributes": True}

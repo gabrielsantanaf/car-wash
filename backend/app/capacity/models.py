@@ -15,5 +15,6 @@ class CapacitySlot(Base):
     start_time: Mapped[str] = mapped_column(String(5))  # "HH:MM"
     end_time: Mapped[str] = mapped_column(String(5))    # "HH:MM"
     max_cars: Mapped[int] = mapped_column(Integer, default=1)
+    slot_duration_minutes: Mapped[int] = mapped_column(Integer, default=60)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="capacity_slots")  # noqa: F821

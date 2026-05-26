@@ -22,6 +22,7 @@ const STATUS_CLS: Record<string, string> = {
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
+  const [updatingVehicle, setUpdatingVehicle] = useState<string | null>(null);
 
   async function load() {
     const { data } = await api.get("/appointments");
@@ -37,6 +38,26 @@ export default function AppointmentsPage() {
       load();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail ?? "Erro");
+    }
+  }
+
+  async function toggleVehicleSize(vehicleId: string, current: string) {
+    const next = current === "large" ? "small" : "large";
+    setUpdatingVehicle(vehicleId);
+    try {
+      await api.patch(`/vehicles/${vehicleId}/size`, { size_category: next });
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.vehicle?.id === vehicleId
+            ? { ...a, vehicle: { ...a.vehicle, size_category: next } }
+            : a
+        )
+      );
+      toast.success(next === "large" ? "Marcado como SUV/Caminhonete" : "Marcado como carro padrão");
+    } catch {
+      toast.error("Erro ao atualizar veículo");
+    } finally {
+      setUpdatingVehicle(null);
     }
   }
 
@@ -64,7 +85,7 @@ export default function AppointmentsPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-border">
               <tr>
-                {["Data/Hora", "Cliente", "Placa", "Serviço", "Status", "Ações"].map((h) => (
+                {["Data/Hora", "Cliente", "Veículo", "Serviço", "Status", "Ações"].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -73,31 +94,51 @@ export default function AppointmentsPage() {
               {filtered.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-sm">Nenhum agendamento.</td></tr>
               )}
-              {filtered.map((a) => (
-                <tr key={a.id} className="hover:bg-secondary/30 transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    {new Date(a.scheduled_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-sm">{a.client?.name ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground">{a.client?.phone}</p>
-                  </td>
-                  <td className="px-4 py-3 font-mono font-bold text-sm">{a.vehicle?.plate ?? "—"}</td>
-                  <td className="px-4 py-3 text-sm">{a.service_type}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_CLS[a.status] ?? "bg-muted text-muted-foreground"}`}>
-                      {STATUS_LABELS[a.status] ?? a.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {a.status === "scheduled" && (
-                      <button onClick={() => addToQueue(a.id)} className="flex items-center gap-1 text-xs text-primary hover:underline whitespace-nowrap font-semibold">
-                        <PlusCircle size={14} /> Adicionar à fila
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((a) => {
+                const isLarge = a.vehicle?.size_category === "large";
+                const updating = updatingVehicle === a.vehicle?.id;
+                return (
+                  <tr key={a.id} className="hover:bg-secondary/30 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {new Date(a.scheduled_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-sm">{a.client?.name ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{a.client?.phone}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-mono font-bold text-sm">{a.vehicle?.plate ?? "—"}</p>
+                      {a.vehicle?.id && (
+                        <button
+                          onClick={() => toggleVehicleSize(a.vehicle.id, a.vehicle.size_category ?? "small")}
+                          disabled={updating}
+                          title={isLarge ? "Clique para marcar como carro padrão" : "Clique para marcar como SUV/caminhonete"}
+                          className={`mt-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50 ${
+                            isLarge
+                              ? "bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/20"
+                              : "bg-secondary text-muted-foreground border-border hover:border-muted-foreground/50"
+                          }`}
+                        >
+                          {updating ? "..." : isLarge ? "SUV/Caminhonete" : "Carro"}
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">{a.service_type}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_CLS[a.status] ?? "bg-muted text-muted-foreground"}`}>
+                        {STATUS_LABELS[a.status] ?? a.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.status === "scheduled" && (
+                        <button onClick={() => addToQueue(a.id)} className="flex items-center gap-1 text-xs text-primary hover:underline whitespace-nowrap font-semibold">
+                          <PlusCircle size={14} /> Adicionar à fila
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

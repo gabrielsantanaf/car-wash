@@ -7,12 +7,14 @@ class CapacitySlotCreate(BaseModel):
     start_time: str  # "HH:MM"
     end_time: str
     max_cars: int = 1
+    slot_duration_minutes: int = 60
 
 
 class CapacitySlotUpdate(BaseModel):
     max_cars: int | None = None
     start_time: str | None = None
     end_time: str | None = None
+    slot_duration_minutes: int | None = None
 
 
 class CapacitySlotResponse(BaseModel):
@@ -22,5 +24,6 @@ class CapacitySlotResponse(BaseModel):
     start_time: str
     end_time: str
     max_cars: int
+    slot_duration_minutes: int
 
     model_config = {"from_attributes": True}
