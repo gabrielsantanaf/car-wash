@@ -11,6 +11,7 @@ class CapacitySlotCreate(BaseModel):
 
 
 class CapacitySlotUpdate(BaseModel):
+    weekday: int | None = None
     max_cars: int | None = None
     start_time: str | None = None
     end_time: str | None = None
