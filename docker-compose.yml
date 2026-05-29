@@ -65,7 +65,7 @@ services:
     environment:
       SERVER_URL: http://localhost:8080
       AUTHENTICATION_TYPE: apikey
-      AUTHENTICATION_API_KEY: dev-api-key
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
       AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
