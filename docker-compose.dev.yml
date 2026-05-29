@@ -1,0 +1,25 @@
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "until alembic upgrade head; do echo 'Migration failed, retrying in 3s...'; sleep 3; done && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+  notification:
+    volumes:
+      - ./notification-service:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost/api
+    command: ["npm", "run", "dev"]
+    healthcheck:
+      start_period: 120s

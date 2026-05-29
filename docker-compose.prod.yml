@@ -6,33 +6,19 @@ services:
     restart: always
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    volumes: []
     restart: always
     command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2"]
 
   notification:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    volumes: []
-    ports: []
     restart: always
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 
   evolution:
-    ports: []
     restart: always
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-    volumes: []
     restart: always
-    command: ["node", "server.js"]
+    environment:
+      NEXT_PUBLIC_API_URL: https://app.sabiadeveloper.com/api
 
   nginx:
     profiles:
