@@ -40,6 +40,14 @@ export default function CapacityPage() {
     max_cars: "2",
     slot_duration_minutes: "60",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingForm, setEditingForm] = useState({
+    weekday: "0",
+    start_time: "08:00",
+    end_time: "18:00",
+    max_cars: "2",
+    slot_duration_minutes: "60",
+  });
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function load() {
@@ -72,6 +80,38 @@ export default function CapacityPage() {
       load();
     } catch {
       toast.error("Erro ao atualizar");
+    }
+  }
+
+  function startEdit(slot: CapacitySlot) {
+    setEditingId(slot.id);
+    setEditingForm({
+      weekday: String(slot.weekday),
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      max_cars: String(slot.max_cars),
+      slot_duration_minutes: String(slot.slot_duration_minutes),
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function saveEdit(id: string) {
+    try {
+      await api.put(`/capacity/${id}`, {
+        weekday: Number(editingForm.weekday),
+        start_time: editingForm.start_time,
+        end_time: editingForm.end_time,
+        max_cars: Number(editingForm.max_cars),
+        slot_duration_minutes: Number(editingForm.slot_duration_minutes),
+      });
+      setEditingId(null);
+      load();
+      toast.success("Configuração atualizada com sucesso.");
+    } catch {
+      toast.error("Erro ao salvar");
     }
   }
 
@@ -196,38 +236,105 @@ export default function CapacityPage() {
                 <tr key={s.id} className="hover:bg-secondary/30 transition-colors">
                   <td className="px-4 py-3 font-semibold">{WEEKDAYS[s.weekday]}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {s.start_time} – {s.end_time}
+                    {editingId === s.id ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={editingForm.weekday}
+                          onChange={(e) => setEditingForm((f) => ({ ...f, weekday: e.target.value }))}
+                          className={inputCls}
+                        >
+                          {WEEKDAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                        </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="time"
+                            value={editingForm.start_time}
+                            onChange={(e) => setEditingForm((f) => ({ ...f, start_time: e.target.value }))}
+                            className={inputCls}
+                          />
+                          <input
+                            type="time"
+                            value={editingForm.end_time}
+                            onChange={(e) => setEditingForm((f) => ({ ...f, end_time: e.target.value }))}
+                            className={inputCls}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>{s.start_time} – {s.end_time}</>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      defaultValue={s.slot_duration_minutes}
-                      onChange={(e) => updateField(s.id, "slot_duration_minutes", Number(e.target.value))}
-                      className="bg-secondary border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    >
-                      {DURATIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                    </select>
+                    {editingId === s.id ? (
+                      <select
+                        value={editingForm.slot_duration_minutes}
+                        onChange={(e) => setEditingForm((f) => ({ ...f, slot_duration_minutes: e.target.value }))}
+                        className="bg-secondary border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        {DURATIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                      </select>
+                    ) : (
+                      <select
+                        defaultValue={s.slot_duration_minutes}
+                        onChange={(e) => updateField(s.id, "slot_duration_minutes", Number(e.target.value))}
+                        className="bg-secondary border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        {DURATIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                      </select>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <input
-                      type="number" min={1} max={20}
-                      defaultValue={s.max_cars}
-                      onBlur={(e) => updateField(s.id, "max_cars", Number(e.target.value))}
-                      className="w-16 bg-secondary border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
+                    {editingId === s.id ? (
+                      <input
+                        type="number" min={1} max={20}
+                        value={editingForm.max_cars}
+                        onChange={(e) => setEditingForm((f) => ({ ...f, max_cars: e.target.value }))}
+                        className="w-16 bg-secondary border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    ) : (
+                      <input
+                        type="number" min={1} max={20}
+                        defaultValue={s.max_cars}
+                        onBlur={(e) => updateField(s.id, "max_cars", Number(e.target.value))}
+                        className="w-16 bg-secondary border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs font-semibold bg-secondary border border-border rounded-full px-2.5 py-1">
                       {slotCount(s)} horários
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => deleteSlot(s.id)}
-                      disabled={deletingId === s.id}
-                      className="text-xs font-semibold text-destructive border border-destructive/30 rounded-md px-3 py-1.5 hover:bg-destructive/10 disabled:opacity-50 transition-colors"
-                    >
-                      {deletingId === s.id ? "..." : "Remover"}
-                    </button>
+                  <td className="px-4 py-3 flex gap-2 items-center">
+                    {editingId === s.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveEdit(s.id)}
+                          className="text-xs font-semibold text-foreground bg-primary/10 border border-primary/20 rounded-md px-3 py-1.5 hover:bg-primary/20 transition-colors"
+                        >Salvar</button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="text-xs font-semibold text-muted-foreground bg-secondary border border-border rounded-md px-3 py-1.5 hover:bg-secondary/80 transition-colors"
+                        >Cancelar</button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(s)}
+                          className="text-xs font-semibold text-foreground border border-border rounded-md px-3 py-1.5 hover:bg-secondary/30 transition-colors"
+                        >Editar</button>
+                        <button
+                          onClick={() => deleteSlot(s.id)}
+                          disabled={deletingId === s.id}
+                          className="text-xs font-semibold text-destructive border border-destructive/30 rounded-md px-3 py-1.5 hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+                        >
+                          {deletingId === s.id ? "..." : "Remover"}
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
