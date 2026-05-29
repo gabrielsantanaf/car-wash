@@ -13,32 +13,30 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     restart: always
-    command: []
+    command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2"]
 
   notification:
     build:
       context: ./notification-service
       dockerfile: Dockerfile
     volumes: []
-    ports:
-      - "127.0.0.1:8001:8001"
+    ports: []
     restart: always
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 
   evolution:
-    ports:
-      - "127.0.0.1:8080:8080"
+    ports: []
     restart: always
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     volumes: []
     ports:
       - "127.0.0.1:3000:3000"
     restart: always
-    command: []
+    command: ["node", "server.js"]
 
   nginx:
     profiles:
