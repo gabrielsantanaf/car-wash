@@ -16,9 +16,12 @@ services:
     restart: always
 
   frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://app.sabiadeveloper.com/api
     restart: always
-    environment:
-      NEXT_PUBLIC_API_URL: https://app.sabiadeveloper.com/api
 
   nginx:
     profiles:
